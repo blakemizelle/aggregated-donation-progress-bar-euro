@@ -1,0 +1,42 @@
+<!-- _combined_progress.html -->
+<!-- Renders the paragraph and combined progress bar -->
+<!-- Expects amount_in_cents, goal, goal_cents_raw, percent -->
+
+{% comment %}
+  Expects:
+  - amount_in_cents: Integer total in cents.
+  - goal: Formatted goal string (for text display).
+  - goal_cents_raw: Integer goal in cents.
+  - percent: Calculated percentage.
+{% endcomment %}
+
+{% assign display_percent = percent | default: 0 %}
+{% assign received_cents = amount_in_cents | default: 0 %}
+{% assign display_goal = goal | default: "€0,00" %}
+{% assign received_goal_cents = goal_cents_raw | default: 0 %}
+
+<!-- Manually format the amount cents into Euro string (Simplified) -->
+{% assign total_euros = received_cents | divided_by: 100.0 %}
+{% assign total_euros_rounded = total_euros | round: 2 %}
+{% capture display_amount %}€{{ total_euros_rounded | replace: '.', ',' }}{% endcapture %}
+<!-- Ensure two decimal places visually, even for whole numbers -->
+{% unless display_amount contains ',' %}
+  {% assign display_amount = display_amount | append: ',00' %}
+{% else %}
+  {% assign parts = display_amount | split: ',' %}
+  {% assign decimal_part = parts | last %}
+  {% if decimal_part.size == 1 %}
+    {% assign display_amount = display_amount | append: '0' %}
+  {% endif %}
+{% endunless %}
+
+<!-- Render the paragraph text directly -->
+<p class="mb-3 h5 text-sans-serif font-weight-semi-bold">{{ display_amount }} collectés jusqu'à maintenant. Aidez-nous à atteindre {{ display_goal }}!</p>
+
+<!-- Use raw cents for data-amount and data-goal -->
+<div class="progress" data-percent="{{ display_percent }}" data-goal="{{ received_goal_cents }}" data-amount="{{ received_cents }}"> 
+  <div class="progress-bar" role="progressbar" style="width: {{ display_percent }}%;" aria-valuenow="{{ display_percent }}" aria-valuemin="0" aria-valuemax="100">
+      <!-- No inner text needed -->
+  </div>
+</div>
+<!-- No goal text below needed -->
