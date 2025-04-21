@@ -1,6 +1,3 @@
-
-Okay, absolutely. It's crucial to document this clearly, both for maintenance and for the end-user. Here's a breakdown:
-
 ## Customer Instructions: Using the Combined Campaign Progress Bar
 
 This feature allows you to link multiple donation pages together into a "campaign". Any page included in the campaign will display a progress bar showing the *total amount raised across all pages in that campaign*, calculated against the goal set on the page currently being viewed.
@@ -119,5 +116,3 @@ This feature allows you to link multiple donation pages together into a "campaig
     *   Uses `display_percent` for `data-percent`, `style="width:..."`, and `aria-valuenow`.
     *   Uses `received_goal_cents` (raw integer) for `data-goal`.
     *   Uses `received_cents` (raw integer) for `data-amount`.
-
-This structure ensures calculations happen centrally, formatting happens display-time in the partial, and relies on the most robust Liquid methods identified through debugging.
