@@ -1,0 +1,493 @@
+<!-- update 0.1.1-->
+{% include "translation" %}
+
+{% capture form %}
+  <!-- Revised Logic: Check for campaign tag -->
+  {% assign is_campaign_page = false %}
+  {% assign campaign_total_cents = 0 %}
+  
+  <!-- Calculate current page contribution first -->
+  {% assign display_page_cents = 0 %}
+  {% assign current_page_amount_str = page.donations_amount_format | default: "€0" | remove: "€" | remove: "." | replace: ",", "." %}
+  {% assign display_page_cents = current_page_amount_str | times: 100 | round %}
+
+  <!-- Loop through tags to find the campaign tag -->
+  {% for tag in page.tags %}
+    {% if tag.name contains "aggregated_campaign | " %}
+      {% assign is_campaign_page = true %}
+      
+      <!-- Attempt to fetch and process pages immediately -->
+      {% assign pages_for_this_tag = tag.alphabetical_pages_no_pagination %}
+
+      {% for loop_page in pages_for_this_tag %}
+        {% assign loop_amount_str = loop_page.donations_amount_format | default: "€0" | remove: "€" | remove: "." | replace: ",", "." %}
+        {% assign loop_cents = loop_amount_str | times: 100 | round %}
+        {% assign campaign_total_cents = campaign_total_cents | plus: loop_cents %}
+      {% endfor %}
+      
+      {% break %} <!-- Process only the first matching campaign tag -->
+    {% endif %}
+  {% endfor %}
+  
+  <!-- Add current page's contribution AFTER the loop -->
+  {% if is_campaign_page %}
+     {% assign campaign_total_cents = campaign_total_cents | plus: display_page_cents %}
+  {% endif %}
+
+  <!-- Now, display based on whether a campaign was processed -->
+  {% if is_campaign_page %}
+    <!-- --- Display Campaign Progress --- -->
+    
+    <!-- Calculate Goal & Percentage -->
+    {% assign current_page_goal_cents = page.donation_v2.amount_goal_format | default: "€0,00" | remove: "€" | remove: " " | remove: "." | replace: ",", "." | times: 100 | round %}
+    {% assign campaign_percentage = 0 %}
+    {% if current_page_goal_cents > 0 %}
+      {% assign campaign_percentage = campaign_total_cents | times: 1.0 | divided_by: current_page_goal_cents | times: 100.0 | round: 2 %}
+      {% if campaign_percentage > 100 %}{% assign campaign_percentage = 100 %}{% endif %}
+    {% endif %}
+
+    <!-- Formatting happens in the partial -->
+    {% assign goal_format = page.donation_v2.amount_goal_format | default: page.goal_string | default: "€0,00" %}
+
+    <!-- Include the final display partial, passing cents -->
+    <div class="mb-4"> 
+      {% include "combined_progress"
+        percent: campaign_percentage,
+        amount_in_cents: campaign_total_cents,
+        goal_cents_raw: current_page_goal_cents,
+        goal: goal_format
+      %}
+    </div>
+
+  {% else %}
+    <!-- --- Standard Progress Bar Logic (Original Code) --- -->
+    {% if page.donation_v2.has_amount_goal? %}
+      <div class="mb-4">
+        <p class="mb-3 h5 text-sans-serif font-weight-semi-bold">{{ t_donation_amount_raised_so_far | replace: "$amount", page.donations_amount_format | replace: "$goal", page.donation_v2.amount_goal_format }}</p>
+        {% include "progress"
+          percent: page.donation_v2.percent_of_amount_goal,
+          amount: page.donations_amount_format,
+          goal: page.donation_v2.amount_goal_format,
+        %}
+      </div>
+    {% elsif page.donation_v2.has_donor_goal? %}
+      <div class="mb-4">
+        <p class="mb-3 h5 text-sans-serif font-weight-semi-bold">{{ t_donation_donors_so_far | replace: "$amount", page.donations_count | replace: "$goal", page.donation_v2.donor_goal }}</p>
+        {% include "progress"
+          percent: page.donation_v2.percent_of_donor_goal,
+          count: page.donations_count,
+          goal: page.donation_v2.donor_goal,
+        %}
+      </div>
+    {% endif %}
+  {% endif %}
+
+
+  {% form_for donation %}
+    <div class="form">
+      <div class="form-errors">{% error_messages_for donation %}</div>
+
+      {% if page.donation_v2.has_merchant_account? == false %}
+        <p class="text-danger">{{ t_forms_no_payment_processor }}</p>
+      {% elsif page.donation_v2.merchant_account.is_test_mode? %}
+        <p class="text-danger">{{ t_forms_testing_mode }}</p>
+      {% endif %}
+
+      {% if request.current_order %}
+        <h3 class="h4">{{ t_forms_your_order }}</h3>
+        <div class="table-responsive">
+          <table class="table table-borderless table-striped">
+            <thead>
+              <tr>
+                <th scope="col">{{ t_invoices_quantity }}</th>
+                <th scope="col">{{ t_forms_name }}</th>
+                <th scope="col">{{ t_forms_amount }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in request.current_order.items %}
+              <tr>
+                {% if item.num_time_periods and item.time_period_type %}
+                  <td>{{ item.quantity }}</td>
+                  <td>{{ item.name }}</td>
+                  <td>{{ t_donation_amount_billed_automatically_every_period | replace: '$amount', item.amount | replace: '$time', item.num_time_periods | replace: '$time_period', item.time_period_type }}</td>
+                {% else %}
+                  <td>{{ item.quantity }}</td>
+                  <td>{{ item.name }}</td>
+                  <td>{{ item.amount }}</td>
+                {% endif %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div><a class="clear-order" href="{{ page.donation_v2.clear_order_url }}">{{ t_forms_clear_order }}</a></div>
+      {% else %}
+        <fieldset>
+          {% if page.donation_v2.donation_frequency == "any" %}
+            <legend class="mb-3 h6 font-weight-semi-bold text-sans-serif">{{ t_forms_select_an_amount }}</legend>
+            <div class="form-group">
+              <div class="donation-v2-occurence-radio radio-inline clearfix">
+                {{ page.donation_v2.monthly_recurring_radio_buttons | replace: "One-time", t_forms_one_time | replace: "Monthly", t_forms_monthly }}
+              </div>
+            </div>
+          {% endif %}
+          {% if page.donation_v2.amount_in_cents != 0 %}
+            <legend class="mb-3 h6 font-weight-semi-bold text-sans-serif">{{ t_forms_amount }}</legend>
+            <p class="h2 single-amount mb-0">{{ page.donation_v2.amount_formatted }}</p>
+            {% if page.donation_v2.donation_frequency == "monthly" %}
+              <p class="mt-2 mb-0 text-black-75">{{ t_forms_paid_monthly }}</p>
+            {% elsif page.donation_v2.donation_frequency == "annual" %}
+              <p class="mt-2 mb-0 text-black-75">{{ t_forms_paid_annually }}</p>
+            {% endif %}
+          {% else %}
+            <div class="form-group">
+              <div class="donation-v2-amounts">
+                {{ page.donation_v2.form_amount_options }}
+              </div>
+            </div>
+          {% endif %}
+          {% if page.donation_v2.accepts_variable_amounts? or page.donation_v2.donation_frequency == "any" %}
+            <div class="form-row donation-v2-options{% if page.donation_v2.accepts_variable_amounts? == false %} single-amount-any-frequency{% endif %}">
+              {% if page.donation_v2.accepts_variable_amounts? %}
+                <div class="form-group col">
+                  {{ page.donation_v2.amount_other | replace: 'Other ' : '', | replace: '<div class="input-group donation-other-input-container">': '<div class="input-group donation-other-input-container" data-focus-target="donation_amount_other_input">' }}
+                </div>
+              {% endif %}
+            </div>
+          {% endif %}
+        </fieldset>
+      {% endif %}
+
+      <fieldset class="mt-4">
+        <legend class="mb-3 h6 font-weight-semi-bold text-sans-serif">{{ t_forms_pay_with }}</legend>
+
+          {% if page.donation_v2.express_payment_activated? %}
+        <div id="payment-methods" class="form-row my-2">
+          <div id="donation-v2-payment-request"></div>
+          <div id="cc-request-button">
+            <button type="button" class="btn btn-positive"><i id="credit-card-icon"></i>{{ t_forms_credit_card }}</button>
+          </div>
+          <div id="apple-pay-notice">
+            <p class="small">{{ t_forms_apple_pay_notice }}</p>
+          </div>
+        </div>
+          {% endif %}
+        <div id="selected-payment-method" class="form-row">
+          <div class="col-sm-12">
+            <i id="payment-method-icon"></i><a href="#" class="change-payment-method">{{ t_forms_change_payment_method }}</a>
+          </div>
+          <p>{{ t_forms_youre_almost_done }}</p>
+        </div>
+        <div id="submitted-payment-method" class="form-row">
+          <div class="col-sm-12">
+            <p>{{ t_forms_payment_method_saved }} <a href="#" class="change-submitted-payment-method">{{ t_forms_change_payment_method }}</a></p>
+          </div>
+        </div>
+        <div id="cc-info" class="form-group">
+          {% payment_field 'card' %}
+          <p class="pt-1 text-center">
+            <a href="#" class="change-payment-method">{{ t_forms_change_payment_method }}</a>
+          </p>
+        </div>
+      </fieldset>
+
+      <fieldset id="your-info" class="mt-4">
+        <legend class="mb-3 h6 font-weight-semi-bold text-sans-serif">{{ t_forms_your_information }}</legend>
+        <div id="demographics-read-only" class="mb-2">
+          <a href="#" id="edit-demographics">{{ t_forms_edit }}</a>
+          <p id="demographics-name"></p>
+          <p id="demographics-email"></p>
+          <p id="demographics-phone"></p>
+        </div>
+        <div id="demographics-info">
+          <div class="form-row">
+            <div class="form-group col-md-6">
+              <div class="float-label">
+                <label for="donation_first_name">{{ t_forms_first_name }}</label>
+                {% text_field "first_name", class:"form-control" %}
+              </div>
+            </div>
+            <div class="form-group col-md-6">
+              <div class="float-label">
+                <label for="donation_last_name">{{ t_forms_last_name }}</label>
+                {% text_field "last_name", class:"form-control" %}
+              </div>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group col-md-6">
+              <div class="float-label">
+                <label for="donation_email">{{ t_forms_email }}</label>
+                {% email_field "email", class:"form-control" %}
+              </div>
+            </div>
+            <div class="form-group col-md-6">
+              <div class="float-label">
+                <label for="donation_billing_address_phone_number">{{ t_forms_phone }}</label>
+                {% phone_field "billing_address.phone_number", class:"form-control" %}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p id="address-read-only">
+          <span class="address-line">
+            <span id="address-line1"></span><a href="#" id="edit-address">{{ t_forms_edit }}</a>
+          </span>
+          <span class="address-line">
+            <span id="address-line2"></span>
+          </span>
+          <span class="address-line">
+            <span id="address-city"></span>, <span id="address-state"></span> <span id="address-zip"></span>
+          </span>
+          <span class="address-line">
+            <span id="address-country"></span>
+          </span>
+        </p>
+        <div id="address-info">
+          {% include "donation_billing_address_inputs" %}
+        </div>
+
+        {% if page.donation_v2.merchant_account.is_employer_and_occupation_required? %}
+          <div class="form-row">
+            <div class="form-group col-md-6">
+              <div class="float-label">
+                <label for="donation_employer">{{ t_forms_employer }}</label>
+                {% text_field "employer", class:"form-control", required:"required" %}
+              </div>
+            </div>
+            <div class="form-group col-md-6">
+              <div class="float-label">
+                <label for="donation_occupation">{{ t_forms_occupation }}</label>
+                {% text_field "occupation", class:"form-control", required:"required" %}
+              </div>
+            </div>
+          </div>
+
+          {% if page.donation_v2.merchant_account.is_employer_address_required? or page.donation_v2.merchant_account.is_employer_city_required? %}
+            {% include "donation_work_address_inputs" %}
+          {% endif %}
+
+          <div class="form-group">
+            <small class="text-gray-75">{{ t_forms_law_requires_employer_occupation }}</small>
+          </div>
+        {% endif %}
+
+        {% if page.donation_v2.merchant_account.is_corporate_contribution_required? %}
+          <div class="form-group">
+            <div class="custom-control custom-checkbox">
+              {% check_box "is_corporate_contribution", class:"custom-control-input checkbox" %}
+              <label class="custom-control-label checkbox" for="donation_is_corporate_contribution">{{ t_forms_contribution_from_business }}</label>
+            </div>
+          </div>
+        {% endif %}
+
+        {% for cf in custom_fields.donation %}
+          {% assign custom_field = cf[1] %}
+          {% assign custom_field_id = 'custom_values.' | append: custom_field.slug %}
+
+          <div class="form-group">
+            {% if custom_field.is_text? %}
+              <div class="float-label">
+                <label for="donation_custom_values_{{ custom_field.slug }}_custom">{{ custom_field.name }}</label>
+                {% text_field custom_field_id, class:"form-control" %}
+              </div>
+            {% elsif custom_field.is_number? %}
+              <div class="float-label">
+                <label for="donation_custom_values_{{ custom_field.slug }}_custom">{{ custom_field.name }}</label>
+                {% number_field custom_field_id, class:"form-control" %}
+              </div>
+            {% elsif custom_field.is_boolean? %}
+              <div class="custom-control custom-checkbox">
+                {% check_box custom_field_id, class:"custom-control-input checkbox" %}
+                <label class="custom-control-label checkbox" for="donation_custom_values_{{ custom_field.slug }}_custom">{{ custom_field.name }}</label>
+              </div>
+            {% elsif custom_field.is_multiple_choice? %}
+              <div class="float-label">
+                <label for="donation_custom_values_{{ custom_field.slug }}_custom">{{ custom_field.name }}</label>
+                {% select_field custom_field_id, custom_fields.donation[custom_field.slug].multiple_choice_options, class:"custom-select" %}
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+
+        <div class="form-group">
+          <small class="text-black-75">
+            {% if page.donation_v2.merchant_account.is_taxable? %}
+              {{ t_forms_contributions_not_tax_deductible }}
+            {% else %}
+              {{ t_forms_contributions_tax_deductible }}
+            {% endif %}
+          </small>
+        </div>
+
+        {% unless page.show_consent_form? %}
+          <div class="form-group">
+            <div class="custom-control custom-checkbox">
+              {% check_box "email_opt_in", class:"custom-control-input" %}
+              <label class="custom-control-label" for="donation_email_opt_in">{{ t_forms_send_email_updates }}</label>
+            </div>
+          </div>
+        {% endunless %}
+
+        {% if site.ask_to_publish_to_stream? %}
+          <div class="form-group">
+            <div class="custom-control custom-checkbox">
+              {% check_box "is_private", class:"custom-control-input checkbox" %}
+              <label for="donation_is_private" class="custom-control-label checkbox">{{ t_forms_dont_publish_donation }}</label>
+            </div>
+          </div>
+        {% endif %}
+
+        <div class="bg-light mt-4 mx-n5 p-5">
+          {% if page.donation_v2.merchant_account.has_contribution_rules? %}
+            <div clas="form-group">
+              <label for="is_confirmation_text">{{ t_forms_contribution_rules }}</label>
+              {{ page.donation_v2.merchant_account.contribution_rules }}
+              <div class="custom-control custom-checkbox">
+                {% check_box "is_confirmed", class:"custom-control-input checkbox" %}
+                <label for="donation_is_confirmed" class="custom-control-label checkbox">{{ t_forms_confirm_true_and_accurate }}</label>
+              </div>
+            </div>
+          {% endif %}
+
+          {% if page.show_consent_form? %}
+            {% include "consent_form" %}
+          {% endif %}
+            <div class="form-group">
+              <div class="submit-container">
+                <div class="donation-v2-amount text-center mb-4">
+                  {% if request.current_order %}
+                    <p class="h3 mb-0">{{ page.donation_v2.ticket_purchase_total }}</p>
+                  {% else %}
+                    {% if page.donation_v2.confirmation_amount %}
+                      <span class="h3">{{ page.donation_v2.currency_symbol }}</span>
+                      <span class="nb_donation_v2_amount h3 mb-0">{{ page.donation_v2.confirmation_amount }}</span>
+                    {% else %}
+                      <span class="hidden hide h3">{{ page.donation_v2.currency_symbol }}</span>
+                      <span class="nb_donation_v2_amount h3 mb-0"></span>
+                    {% endif %}
+
+                    {% if page.donation_v2.donation_frequency == "one-time" %}
+                    {% elsif page.donation_v2.donation_frequency == "monthly" %}
+                      <div class="text-black-75 nb_donation_v2_interval pt-1" data-placeholder="{{ t_forms_paid_monthly }}">{{ t_forms_paid_monthly }}</div>
+                    {% elsif page.donation_v2.donation_frequency == "annual" %}
+                      <div class="text-black-75 nb_donation_v2_interval pt-1" data-placeholder="{{ t_forms_paid_annually }}">{{ t_forms_paid_annually }}</div>
+                    {% else %}
+                      <div class="text-black-75 nb_donation_v2_interval pt-1" data-placeholder="{{ t_forms_paid_monthly }}">{% if page.donation_v2.interval_monthly? %}{{ t_forms_paid_monthly }}{% endif %}</div>
+                    {% endif %}
+                  {% endif %}
+                </div>
+                <div class="mt-4">
+                  {% if request.current_order %}
+                    {% include "form_submit_tag", label: t_forms_process_payment, full_width: true, size: "lg" %}
+                  {% else %}
+                    {% include "form_submit_tag", label: t_forms_donate_now, full_width: true, size: "lg" %}
+                  {% endif %}
+                </div>
+              </div>
+          </div>
+        </div>
+      </fieldset>
+    </div>
+  {% endform_for %}
+{% endcapture %}
+
+{% if site.has_background_image? %}
+  <div class="row no-gutters">
+    <div class="col-md-6">
+      <div class="min-vh-100 bg-white">
+        <header class="py-3 px-4 border-bottom">
+          <a class="navbar-brand" href="/">
+            {% if site.has_meta_image? %}
+              <img src="{{ site.meta_image_url }}" class="navbar-brand-img mw-100" alt="{{ site.long_name }}"/>
+            {% else %}
+              {{ site.long_name }}
+            {% endif %}
+          </a>
+        </header>
+        <div class="px-4 px-md-5 pt-5">
+          {% if page.headline.size > 0 or page.donation_v2.content.size > 0 %}
+            <div class="mb-5">
+              {% if page.headline.size > 0 %}
+                <h2 class="m-0 h3">{{ page.headline }}</h2>
+              {% endif %}
+              {% if page.donation_v2.content.size > 0 %}
+                <div class="mt-4 lead">{{ page.donation_v2.content }}</div>
+              {% endif %}
+            </div>
+          {% endif %}
+          {{ form }}
+        </div>
+      </div>
+      {% if page.show_social_slider? and page.public_activities_count > 0 %}
+        <div class="pb-3 bg-light">
+          {% include "social_slider" %}
+        </div>
+      {% endif %}
+      {% include "footer" %}
+    </div>
+  </div>
+  <div class="donation-bg" style="background-image: url({{ site.background_image_url }});"></div>
+{% else %}
+  <header class="bg-dark">
+    <div class="container">
+      <div class="row justify-content-center pt-4 pb-5">
+        <div class="col-md-9">
+          {% include "header_mini" %}
+        </div>
+      </div>
+      {% if page.headline.size > 0 or page.donation_v2.content.size > 0 %}
+        <div class="row justify-content-center pb-5">
+          <div class="col-md-9">
+            <div class="px-md-5">
+              {% if page.headline.size > 0 %}
+                <h2 class="m-0 h3 text-white">{{ page.headline }}</h2>
+              {% endif %}
+              {% if page.donation_v2.content.size > 0 %}
+                <div class="mt-4 text-light lead">{{ page.donation_v2.content }}</div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </header>
+  <div class="wrapper-donation-v2">
+    <div class="container">
+      <div class="row justify-content-center">
+        <div class="col-md-9">
+          <div class="card card-lg overflow-hidden">
+            <div class="card-body pb-0">
+              {{ form }}
+            </div>
+            {% if page.show_social_slider? and page.public_activities_count > 0 %}
+              <div class="card-social-slider">
+                {% include "social_slider" %}
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% include "footer" %}
+{% endif %}
+
+<script>
+  var currentLocale = "{{ current_language }}";
+  NB.payments.locale = currentLocale;
+  NB.payments.elementOptions = {
+    style: {
+      base: {
+        fontFamily: '"Helvetica Neue", Helvetica, sans-serif',
+        fontSize: '16px'
+      }
+    }
+  };
+</script>
+<script src="/assets/liquid/theme_donation_v2.js"></script>
+{% if site.has_background_image? %}
+<style>body { background-image: none !important; }</style>
+{% endif %}
