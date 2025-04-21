@@ -33,17 +33,38 @@ The solution modifies the main Donation (v2) page template (`pages_show_donation
 
 ## Prerequisites
 
-*   NationBuilder account with theme editing access.
-*   NationBuilder website using the **Momentum theme** or a theme with a similar structure for Donation (v2) pages and progress bars.
+*   NationBuilder account with theme access.
+*   Website using the **Momentum theme** or a theme with a similar structure for Donation (v2) pages and progress bars.
 *   Using Donation (v2) page types for the campaign pages.
 
 ## Installation / Setup
 
-1.  **Backup Your Theme:** Before making changes, always create a backup or duplicate of your current theme.
-2.  **Copy Files:**
-    *   Copy the provided `pages_show_donation_v2_wide.html` file into your theme's template directory, potentially overwriting your existing file (ensure you merge any other customizations you have in that file). *If your theme uses a different primary donation template name, adapt the code into that file instead.*
-    *   Copy the provided `_combined_progress.html` file into the root of your theme's template directory. *If your theme already has a partial with this name, you will need to rename this one and update the `{% include %}` tag in `pages_show_donation_v2_wide.html` accordingly.*
-3.  **Upload Changes:** Upload the modified/new files to your NationBuilder theme.
+There are two primary ways to implement this feature:
+
+**Option 1: Site-Wide Implementation (Overwrites Theme Default)**
+
+*   **Risk:** High. This replaces your theme's default Donation (v2) template.
+*   **Benefit:** All Donation (v2) pages on your site can potentially use the combined progress bar feature simply by adding the appropriate tags.
+
+1.  **Backup Your Theme:** Crucial first step. Create a backup or duplicate of your current theme.
+2.  **Identify Donation Template:** Determine the main Donation (v2) template file used by your theme (commonly `pages_show_donation_v2_wide.html` for themes like Momentum).
+3.  **Overwrite Template:** Replace the contents of your theme's default Donation (v2) template with the code from the provided `pages_show_donation_v2_wide.html` file. **Warning:** This will overwrite any existing customizations in that file. Carefully merge changes if necessary.
+4.  **Add Partial:** Copy the provided `_combined_progress.html` file into the root of your theme's template directory.
+5.  **Upload Changes:** Upload the modified template and the new partial file to your NationBuilder theme.
+
+**Option 2: Per-Page Implementation (Uses Custom Templates)**
+
+*   **Risk:** Low. Does not affect the theme's default donation page behavior.
+*   **Benefit:** Allows you to enable the combined progress bar only on specific donation pages you choose.
+
+1.  **Backup Your Theme:** Always recommended.
+2.  **Add Partial:** Copy the provided `_combined_progress.html` file into the root of your theme's template directory.
+3.  **For each Donation Page where you want the combined bar:**
+    *   Navigate to the specific Donation (v2) page in your control panel (**Website** > Select site > **Pages**).
+    *   Click **Template**.
+    *   Paste the *entire contents* of the provided `pages_show_donation_v2_wide.html` file into this page-level template editor, replacing any existing code.
+    *   Click **Save and publish changes to this template**.
+4.  **Note:** Pages using this custom template will aggregate totals from *all* pages tagged with their specific campaign tag, even pages still using the default theme template.
 
 ## Configuration & Usage
 
