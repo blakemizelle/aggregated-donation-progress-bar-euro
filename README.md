@@ -33,8 +33,8 @@ The solution modifies the main Donation (v2) page template (`pages_show_donation
 
 ## Prerequisites
 
-*   NationBuilder account with theme access.
-*   Website using the **Momentum theme** or a theme with a similar structure for Donation (v2) pages and progress bars.
+*   NationBuilder account with theme editing access.
+*   NationBuilder website using the **Momentum theme** or a theme with a similar structure for Donation (v2) pages and progress bars.
 *   Using Donation (v2) page types for the campaign pages.
 
 ## Installation / Setup
