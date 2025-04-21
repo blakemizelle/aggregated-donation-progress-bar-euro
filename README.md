@@ -4,6 +4,8 @@
 
 This project implements a custom feature for NationBuilder themes that allows specific Donation (v2) pages to display an aggregated fundraising progress bar. Instead of showing only its own progress, a participating page will display the combined total amount raised across *all* pages belonging to the same designated "campaign", measured against the goal set on the page currently being viewed.
 
+**NOTE:** This code was developed and tested using the official NationBuilder **Momentum** theme ([https://momentum-theme.nationbuilder.com](https://momentum-theme.nationbuilder.com)). While the core Liquid logic should be adaptable, the specific HTML template file (`pages_show_donation_v2_wide.html`) and CSS class names used for the progress bar (`progress`, `progress-bar`) are based on Momentum. Adaptations may be necessary for other themes.
+
 ## Problem Solved
 
 Standard NationBuilder donation pages show progress only towards their individual goals. Organizations running coordinated campaigns across multiple donation pages (e.g., for different appeals, A/B tests, or team pages under one umbrella) often want to display the *overall* campaign progress on each participating page to create a sense of collective effort and momentum. This code provides a Liquid-based solution to achieve that within the theme layer.
@@ -32,6 +34,7 @@ The solution modifies the main Donation (v2) page template (`pages_show_donation
 ## Prerequisites
 
 *   NationBuilder account with theme access.
+*   Website using the **Momentum theme** or a theme with a similar structure for Donation (v2) pages and progress bars.
 *   Using Donation (v2) page types for the campaign pages.
 
 ## Installation / Setup
@@ -63,6 +66,7 @@ Follow these steps to configure and use the combined progress bar:
 
 ## Technical Details
 
+*   **Base Theme:** Assumes structure from NationBuilder **Momentum** theme.
 *   **Tag Detection:** Uses `tag.name contains "aggregated_campaign | "` within a loop over `page.tags`.
 *   **Page Fetching:** Relies on `tag.alphabetical_pages_no_pagination` called immediately on the tag object within the detection loop. This returns up to 500 pages.
 *   **Currency Conversion:** Uses Liquid string filters (`remove`, `replace`) and math filters (`times`, `round`, `plus`) to convert formatted Euro strings (e.g., `€1.234,56`) to integer cents for calculation.
@@ -73,10 +77,10 @@ Follow these steps to configure and use the combined progress bar:
 
 ## Limitations
 
+*   **Theme Dependency:** Designed for the NationBuilder **Momentum** theme. Adaptation required for other themes, especially regarding template names and CSS classes for the progress bar.
 *   **Currency Formatting:** The current manual formatting in `_combined_progress.html` does **not** include thousands separators (e.g., it displays `€12345,67` instead of `€12.345,67`). Modifying this requires more complex Liquid logic or potentially JavaScript.
 *   **Page Limit:** `tag.alphabetical_pages_no_pagination` returns a maximum of 500 pages. If a single campaign tag is applied to more than 500 pages, the aggregation will be incomplete.
 *   **Performance:** While efficient for typical use cases, performance *could* degrade slightly if a very large number of pages (~hundreds) share the same campaign tag, due to the processing loop.
-*   **Theme Structure:** Assumes a theme structure based on `pages_show_donation_v2_wide.html` and the ability to include partials like `_combined_progress.html` and `_progress.html`. Adaptation might be needed for heavily customized themes.
 *   **Goal Requirement:** Relies on a valid, non-zero Amount goal being set on *each* page displaying the combined bar for correct percentage calculation.
 
 ## Troubleshooting
