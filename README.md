@@ -1,0 +1,1 @@
+# aggregated-donation-progress-bar-euro
